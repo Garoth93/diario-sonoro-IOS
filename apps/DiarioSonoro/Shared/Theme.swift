@@ -108,18 +108,23 @@ struct M3Theme: Sendable {
     var neutral: Tones { Tones(accent: onSurfaceVariant, onAccent: surface, container: surfaceContainerHighest, onContainer: onSurface) }
     var danger: Tones { Tones(accent: error, onAccent: onError, container: errorContainer, onContainer: onErrorContainer) }
 
-    /// Calendar intensity (0…4): from no fill to the full accent.
+    private var accentPalette: TonalPalette { TonalPalette(hex: Palette.defaultAccent) }
+
+    /// Calendar intensity (0…4): a tonal ramp of the accent, from no fill to full.
     func intensity(_ level: Int) -> Color {
-        switch level {
-        case 0: return .clear
-        case 1: return primary.opacity(dark ? 0.22 : 0.16)
-        case 2: return primary.opacity(dark ? 0.40 : 0.32)
-        case 3: return primary.opacity(dark ? 0.62 : 0.55)
-        default: return primary
-        }
+        let tones: [Double] = dark ? [0, 24, 33, 46, 60] : [0, 93, 84, 66, 47]
+        guard level > 0 else { return .clear }
+        return Color(rgb: accentPalette.tone(tones[min(level, 4)]))
     }
 
-    func onIntensity(_ level: Int) -> Color { level >= 3 ? onPrimary : onSurface }
+    func onIntensity(_ level: Int) -> Color {
+        if dark { return level >= 4 ? .white : onSurface }
+        return level >= 3 ? .white : onSurface
+    }
+
+    /// Full-strength accent for the big record button (also in dark mode).
+    var recordFill: Color { dark ? Color(rgb: accentPalette.tone(58)) : primary }
+    var onRecordFill: Color { .white }
 }
 
 extension EnvironmentValues {

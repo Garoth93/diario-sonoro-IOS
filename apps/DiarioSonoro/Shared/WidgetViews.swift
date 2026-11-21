@@ -98,7 +98,7 @@ struct TodayWidgetContent: View {
                 .monospacedDigit()
                 .foregroundStyle(m3.onSurface)
                 .contentTransition(.numericText())
-            Text(snapshot.todayClips == 1 ? "clip oggi" : "clip oggi")
+            Text("clip oggi")
                 .font(.m3LabelLarge)
                 .foregroundStyle(m3.onSurfaceVariant)
             WaveformView(samples: snapshot.waveform, color: snapshot.todayClips > 0 ? m3.primary : m3.outlineVariant, barCount: 18)

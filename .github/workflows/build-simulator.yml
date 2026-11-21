@@ -92,9 +92,10 @@ jobs:
             --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100 || true
           xcrun simctl install "$DEVICE" "$APP_PATH"
           mkdir -p screenshots
-          # Warm-up launch (first start is slower).
-          xcrun simctl launch "$DEVICE" "$BUNDLE_ID" -demo -screen record || true
-          sleep 8
+          # Warm-up: let first-boot system banners pass, then a first (slower) launch.
+          sleep 25
+          xcrun simctl launch "$DEVICE" "$BUNDLE_ID" -demo -screen record </dev/null || true
+          sleep 10
           for appearance in light dark; do
             xcrun simctl ui "$DEVICE" appearance "$appearance"
             while read -r screen wait; do

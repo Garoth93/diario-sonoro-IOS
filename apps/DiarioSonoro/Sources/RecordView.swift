@@ -47,7 +47,7 @@ struct RecordView: View {
                     .contentTransition(.numericText())
                     .animation(.spring, value: s.count)
                 VStack(alignment: .leading, spacing: 0) {
-                    Text(s.count == 1 ? "clip oggi" : "clip oggi")
+                    Text("clip oggi")
                         .font(.m3TitleMedium)
                         .foregroundStyle(m3.onSurface)
                     Text(s.count == 0 ? "il diario aspetta" : ItalianFormat.duration(s.totalDuration) + " di suoni")
@@ -158,10 +158,10 @@ struct RecordView: View {
                 HStack(spacing: 14) {
                     IconBadge(icon: "moon.stars.fill", tones: m3.primaryTones, size: 46)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Colonna sonora di oggi")
+                        Text("Colonna sonora")
                             .font(.m3TitleSmall)
                             .foregroundStyle(m3.onSurface)
-                        Text("Pronta alle \(model.settings.soundtrackTime.label), con \(ItalianFormat.clips(s.count))")
+                        Text("Pronta stasera alle \(model.settings.soundtrackTime.label)")
                             .font(.m3BodySmall)
                             .foregroundStyle(m3.onSurfaceVariant)
                     }
@@ -283,22 +283,22 @@ struct RecordButton: View {
             let recording = model.isRecording
             ZStack {
                 Circle()
-                    .fill(m3.primary.opacity(recording ? 0.16 : 0.07))
+                    .fill(m3.recordFill.opacity(recording ? 0.18 : 0.08))
                     .frame(width: size + 64, height: size + 64)
                     .scaleEffect(recording ? 0.92 + level * 0.22 : 0.9)
                     .animation(.easeOut(duration: 0.12), value: level)
                 Circle()
-                    .stroke(m3.primary.opacity(0.16), lineWidth: 7)
+                    .stroke(m3.recordFill.opacity(0.18), lineWidth: 7)
                     .frame(width: size + 26, height: size + 26)
                 Circle()
                     .trim(from: 0, to: progress)
-                    .stroke(m3.primary, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                    .stroke(m3.recordFill, style: StrokeStyle(lineWidth: 7, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                     .frame(width: size + 26, height: size + 26)
                 Circle()
-                    .fill(recording ? m3.primary : m3.primary)
+                    .fill(m3.recordFill)
                     .frame(width: size, height: size)
-                    .shadow(color: m3.primary.opacity(0.35), radius: recording ? 26 : 14, y: 8)
+                    .shadow(color: m3.recordFill.opacity(0.35), radius: recording ? 26 : 14, y: 8)
                     .scaleEffect(pressed || recording ? 0.95 : 1)
                     .animation(.spring(response: 0.3, dampingFraction: 0.6), value: pressed || recording)
                 VStack(spacing: 0) {
@@ -311,13 +311,13 @@ struct RecordButton: View {
                             .font(.m3LabelLarge)
                             .opacity(0.8)
                     } else if model.phase == .saving || model.phase == .starting {
-                        ProgressView().tint(m3.onPrimary).controlSize(.large)
+                        ProgressView().tint(m3.onRecordFill).controlSize(.large)
                     } else {
                         Image(systemName: "mic.fill")
                             .font(.system(size: size * 0.28, weight: .semibold))
                     }
                 }
-                .foregroundStyle(m3.onPrimary)
+                .foregroundStyle(m3.onRecordFill)
             }
             .frame(width: size + 64, height: size + 64)
         }
