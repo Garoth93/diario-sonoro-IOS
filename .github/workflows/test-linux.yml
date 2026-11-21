@@ -5,7 +5,7 @@ name: test-linux
 
 on:
   push:
-    branches: ["**"]
+    branches-ignore: ["ci-screenshots"]
     paths-ignore: ["**.md", "docs/**"]
   pull_request:
     paths-ignore: ["**.md", "docs/**"]

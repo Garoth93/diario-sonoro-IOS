@@ -6,7 +6,7 @@ name: build-simulator
 
 on:
   push:
-    branches: ["**"]
+    branches-ignore: ["ci-screenshots"]
     paths-ignore: ["**.md", "docs/**"]
   pull_request:
     paths-ignore: ["**.md", "docs/**"]
@@ -36,6 +36,8 @@ jobs:
     needs: discover
     runs-on: macos-26
     timeout-minutes: 50
+    permissions:
+      contents: write   # only to force-push the screenshots to the `ci-screenshots` branch
     strategy:
       fail-fast: false
       matrix:
@@ -116,6 +118,35 @@ jobs:
           path: apps/${{ matrix.app }}/screenshots/*.png
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Publish screenshots to branch ci-screenshots
+        if: github.event_name == 'push'
+        continue-on-error: true
+        working-directory: apps/${{ matrix.app }}
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ls screenshots/*.png >/dev/null 2>&1 || { echo "no screenshots"; exit 0; }
+          out=$(mktemp -d)
+          mkdir -p "$out/${{ matrix.app }}"
+          for f in screenshots/*.png; do
+            sips -Z 1100 "$f" --out "$out/${{ matrix.app }}/$(basename "$f")" >/dev/null
+          done
+          cd "$out"
+          {
+            echo "# Screenshot ${{ matrix.app }}"
+            echo
+            echo "Dati sintetici. Commit \`${GITHUB_SHA::7}\` del branch \`${GITHUB_REF_NAME}\`."
+            echo
+            for f in ${{ matrix.app }}/*.png; do echo "![$(basename "$f" .png)]($f)"; done
+          } > README.md
+          git init -q -b ci-screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Screenshot ${{ matrix.app }} @ ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git" HEAD:ci-screenshots
 
       - name: Upload raw xcodebuild log
         if: always()
