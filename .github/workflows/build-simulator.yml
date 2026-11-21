@@ -1,0 +1,127 @@
+name: build-simulator
+
+# Compiles every app in apps/ for the iOS Simulator, without signing, then
+# launches it on a simulator with SYNTHETIC data (`-demo`) and saves a
+# screenshot of every screen, light and dark, as an artifact.
+
+on:
+  push:
+    branches: ["**"]
+    paths-ignore: ["**.md", "docs/**"]
+  pull_request:
+    paths-ignore: ["**.md", "docs/**"]
+  workflow_dispatch:
+
+env:
+  XCODE_VERSION: "26.6"   # pinned; see CLAUDE.md "Xcode e runner"
+
+concurrency:
+  group: build-simulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.list.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: |
+          apps=$(ls -d apps/*/ | xargs -n1 basename | jq -R . | jq -cs .)
+          echo "apps=$apps" >> "$GITHUB_OUTPUT"
+          echo "Apps: $apps"
+
+  build:
+    needs: discover
+    runs-on: macos-26
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJson(needs.discover.outputs.apps) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-xcode
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+          app: ${{ matrix.app }}
+
+      - name: Build for iOS Simulator
+        working-directory: apps/${{ matrix.app }}
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          xcodebuild build \
+            -project "${{ matrix.app }}.xcodeproj" \
+            -scheme "${{ matrix.app }}" \
+            -configuration Debug \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            | tee build/xcodebuild-simulator.log | xcbeautify --renderer github-actions
+
+      - name: Screenshots on the simulator (synthetic data)
+        working-directory: apps/${{ matrix.app }}
+        run: |
+          set -euo pipefail
+          SCREENS_FILE="screenshots.txt"
+          if [ ! -f "$SCREENS_FILE" ]; then echo "No $SCREENS_FILE: skipping screenshots"; exit 0; fi
+          APP_PATH=$(find build/DerivedData/Build/Products/Debug-iphonesimulator -maxdepth 1 -name "*.app" | head -1)
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Info.plist")
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)["devices"]
+          ios = sorted([k for k in data if "iOS" in k], reverse=True)
+          for prefs in (["iPhone 17 Pro"], ["iPhone 16 Pro"], ["iPhone"]):
+              for rt in ios:
+                  for d in data[rt]:
+                      if any(d["name"] == p or (p == "iPhone" and d["name"].startswith(p)) for p in prefs):
+                          print(d["udid"]); sys.exit(0)
+          sys.exit(1)
+          ')
+          echo "Simulator: $DEVICE ($BUNDLE_ID)"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl status_bar "$DEVICE" override --time "9:41" --dataNetwork wifi --wifiBars 3 \
+            --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100 || true
+          xcrun simctl install "$DEVICE" "$APP_PATH"
+          mkdir -p screenshots
+          # Warm-up launch (first start is slower).
+          xcrun simctl launch "$DEVICE" "$BUNDLE_ID" -demo -screen record || true
+          sleep 8
+          for appearance in light dark; do
+            xcrun simctl ui "$DEVICE" appearance "$appearance"
+            while read -r screen wait; do
+              [ -z "$screen" ] && continue
+              xcrun simctl terminate "$DEVICE" "$BUNDLE_ID" </dev/null 2>/dev/null || true
+              sleep 1
+              xcrun simctl launch "$DEVICE" "$BUNDLE_ID" -demo -screen "$screen" \
+                -AppleLanguages "(it)" -AppleLocale it_IT </dev/null
+              sleep "${wait:-4}"
+              xcrun simctl io "$DEVICE" screenshot "screenshots/${appearance}-${screen}.png" </dev/null
+              echo "saved ${appearance}-${screen}.png"
+            done < "$SCREENS_FILE"
+          done
+          ls -la screenshots
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.app }}
+          path: apps/${{ matrix.app }}/screenshots/*.png
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload raw xcodebuild log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-simulator-log-${{ matrix.app }}
+          path: apps/${{ matrix.app }}/build/xcodebuild-simulator.log
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,10 @@
+record 4
+recording 4
+calendar 4
+day 4
+anniversary 4
+search 4
+map 10
+stats 4
+settings 4
+widgets 4
