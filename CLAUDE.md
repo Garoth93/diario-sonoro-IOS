@@ -147,7 +147,7 @@ con `name`, target e scheme nel `project.yml`.
 
 | Workflow | Trigger | Cosa fa |
 |----------|---------|---------|
-| `build-simulator.yml` | push su ogni branch, PR, manuale | `xcodebuild build` per iOS Simulator, senza firma; poi avvia l'app su un simulatore con dati sintetici e salva uno screenshot di ogni schermata (chiaro e scuro) nell'artifact `screenshots-<App>`. Le schermate sono elencate in `apps/<App>/screenshots.txt` (`nome attesa_secondi`). |
+| `build-simulator.yml` | push su ogni branch, PR, manuale | `xcodebuild build` per iOS Simulator, senza firma; poi avvia l'app su un simulatore con dati sintetici e salva uno screenshot di ogni schermata (chiaro e scuro) nell'artifact `screenshots-<App>`. Le schermate sono elencate in `apps/<App>/screenshots.txt` (`nome attesa_secondi`). Sui push le stesse immagini (ridotte) vengono anche pubblicate con force-push sul branch `ci-screenshots`: per guardarle `git fetch origin ci-screenshots && git archive FETCH_HEAD \| tar -x -C <cartella>`. |
 | `build-ipa.yml` | push su `main` e `claude/**`, manuale | build Release per dispositivo con `CODE_SIGNING_ALLOWED=NO`, firma ad-hoc con gli `.entitlements` dell'app e delle estensioni, impacchetta `Payload/<App>.app` in `<App>-unsigned.ipa` e lo carica come artifact (30 giorni). |
 | `test-linux.yml` | push su ogni branch, PR, manuale | `swift test` su ogni package in `packages/`. |
 

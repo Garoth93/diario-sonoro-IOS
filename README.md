@@ -79,7 +79,8 @@ identificativi. Prima di reinstallare fai un **backup** dalle Impostazioni.
 
 Il workflow **build-simulator** avvia l'app sul simulatore con un diario
 sintetico (3 anni di clip inventate) e salva uno screenshot di ogni schermata,
-chiaro e scuro, nell'artifact `screenshots-DiarioSonoro`.
+chiaro e scuro, nell'artifact `screenshots-DiarioSonoro` e sul branch
+`ci-screenshots` (aprilo su GitHub per vederli tutti nel README).
 
 ## Struttura
 
