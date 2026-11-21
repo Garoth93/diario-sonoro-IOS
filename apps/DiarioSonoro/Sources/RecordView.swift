@@ -161,7 +161,7 @@ struct RecordView: View {
                         Text("Colonna sonora")
                             .font(.m3TitleSmall)
                             .foregroundStyle(m3.onSurface)
-                        Text("Pronta stasera alle \(model.settings.soundtrackTime.label)")
+                        Text("Stasera alle \(model.settings.soundtrackTime.label)")
                             .font(.m3BodySmall)
                             .foregroundStyle(m3.onSurfaceVariant)
                     }
