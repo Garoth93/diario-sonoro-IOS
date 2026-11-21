@@ -79,7 +79,10 @@ sintetici, `Tests/SonoroCoreTests`):
 - `MiniZip` (ZIP STORE + CRC32, niente ZIP64) e `BackupArchive`
   (`diario.json` + audio, ripristino via cartella di staging), `CSVExport`.
 - `DeepLink` (`diariosonoro://record?source=…`, `day/…`, `soundtrack/…`,
-  `anniversary`), `WidgetSnapshot`, `NotificationPlanner`, `DemoData`
+  `anniversary`), `WidgetSnapshot`, `NotificationPlanner` (colonna sonora,
+  un anno fa, promemoria "È ora della tua registrazione audio" in un minuto
+  pseudo-casuale ma stabile per giorno dentro la fascia scelta, anche oltre la
+  mezzanotte, saltato se oggi c'è già una clip), `DemoData`
   (diario sintetico deterministico di 3 anni).
 
 App (`apps/DiarioSonoro`):

@@ -25,6 +25,7 @@ enum Notifier {
         center.getPendingNotificationRequests { pending in
             let ours = pending.map(\.identifier).filter {
                 $0.hasPrefix(NotificationPlanner.soundtrackPrefix) || $0.hasPrefix(NotificationPlanner.anniversaryPrefix)
+                    || $0.hasPrefix(NotificationPlanner.reminderPrefix)
             }
             center.removePendingNotificationRequests(withIdentifiers: ours)
             var planned: [PlannedNotification] = []
@@ -33,11 +34,17 @@ enum Notifier {
                let n = NotificationPlanner.soundtrack(day: today, clips: data.clips, time: s.soundtrackTime) {
                 planned.append(n)
             }
+            if s.reminderEnabled {
+                let recordedToday = data.clips.contains { $0.day == today }
+                planned += NotificationPlanner.reminders(from: today, days: 14, start: s.reminderStart, end: s.reminderEnd,
+                                                         minuteNow: minuteNow, skipToday: s.reminderSkipIfRecorded && recordedToday)
+            }
             if s.anniversaryNotification {
                 planned += NotificationPlanner.anniversaries(from: today, days: 30, clips: data.clips,
                                                              time: s.anniversaryTime, minuteNow: minuteNow)
             }
-            for n in planned.prefix(50) {
+            // iOS keeps at most 64 pending notifications per app.
+            for n in planned.prefix(60) {
                 let content = UNMutableNotificationContent()
                 content.title = n.title
                 content.body = n.body

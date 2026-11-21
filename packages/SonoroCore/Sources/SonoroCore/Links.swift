@@ -141,6 +141,45 @@ public struct PlannedNotification: Equatable, Sendable {
 public enum NotificationPlanner {
     public static let soundtrackPrefix = "soundtrack."
     public static let anniversaryPrefix = "anniversary."
+    public static let reminderPrefix = "reminder."
+
+    static let reminderBodies = [
+        "Tieni premuto e cattura il suono di questo momento.",
+        "Com'è il suono intorno a te adesso? Bastano pochi secondi.",
+        "Dieci secondi di oggi, da riascoltare tra un anno.",
+        "Fermati un attimo e ascolta: registralo nel tuo diario.",
+        "Strada, bosco, cucina o ufficio: che suono ha la tua giornata?"
+    ]
+
+    /// Minute (from the start of the window's day) at which `day`'s reminder
+    /// fires: pseudo-random inside [start, end], stable for the same day so
+    /// that rescheduling never moves it. A window with end before start
+    /// crosses midnight; end equal to start means a fixed time.
+    public static func reminderMinute(day: DayDate, start: ClockTime, end: ClockTime) -> Int {
+        let length = positiveModulo(end.minutes - start.minutes, 24 * 60)
+        guard length > 0 else { return start.minutes }
+        var rng = SeededRandom(seed: UInt64(bitPattern: Int64(day.dayNumber)) &* 0x9E37_79B9 &+ 17)
+        return start.minutes + Int(rng.next() % UInt64(length + 1))
+    }
+
+    /// Reminders for the next `days` days (today included if its moment is
+    /// still ahead). With `skipToday` (already recorded) today is left out.
+    public static func reminders(from today: DayDate, days: Int, start: ClockTime, end: ClockTime,
+                                 minuteNow: Int, skipToday: Bool) -> [PlannedNotification] {
+        (0..<max(0, days)).compactMap { i -> PlannedNotification? in
+            let d = today.adding(days: i)
+            if i == 0 && skipToday { return nil }
+            let m = reminderMinute(day: d, start: start, end: end)
+            let fireDay = d.adding(days: m / (24 * 60))
+            let time = ClockTime(minutes: m)
+            if fireDay == today && time.minutes <= minuteNow { return nil }
+            var rng = SeededRandom(seed: UInt64(bitPattern: Int64(d.dayNumber)) &+ 99)
+            let body = reminderBodies[Int(rng.next() % UInt64(reminderBodies.count))]
+            return PlannedNotification(id: reminderPrefix + d.iso, day: fireDay, time: time,
+                                       title: "È ora della tua registrazione audio", body: body,
+                                       link: .record(.notification))
+        }
+    }
 
     /// "La colonna sonora di oggi è pronta" for `day`, if it has clips.
     public static func soundtrack(day: DayDate, clips: [Clip], time: ClockTime) -> PlannedNotification? {

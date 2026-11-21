@@ -28,6 +28,10 @@ un account Apple gratuito tramite Sideloadly o SideStore.
   vengono unite in ordine cronologico con dissolvenze incrociate. Un tocco per
   ascoltarla, condividerla o esportarla. Notifica facoltativa "La colonna
   sonora di oggi è pronta". Nei giorni senza clip non succede nulla.
+- **Promemoria** facoltativo: ogni giorno, in un momento a caso della fascia
+  oraria che scegli (es. 10:00–20:00), la notifica "È ora della tua
+  registrazione audio" apre l'app pronta a registrare. Si può saltare nei
+  giorni in cui hai già registrato.
 - **Un anno fa oggi** (e 2, 3… anni fa): schermata e notifica facoltativa.
 - **Mappa**: tutti i luoghi in cui hai registrato, pin raggruppati per zona;
   tocca un pin per ascoltare le clip di quel posto. Filtri per anno, stagione,

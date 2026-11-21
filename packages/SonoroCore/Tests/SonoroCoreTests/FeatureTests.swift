@@ -296,3 +296,64 @@ final class LinksTests: XCTestCase {
         XCTAssertTrue(late.isEmpty)
     }
 }
+
+final class ReminderTests: XCTestCase {
+    let ten = ClockTime(hour: 10, minute: 0)
+    let twenty = ClockTime(hour: 20, minute: 0)
+
+    func testMomentIsInsideWindowStableAndVaried() {
+        var minutes = Set<Int>()
+        var d = day("2026-01-01")
+        for _ in 0..<120 {
+            let m = NotificationPlanner.reminderMinute(day: d, start: ten, end: twenty)
+            XCTAssertTrue((600...1200).contains(m), "\(m)")
+            XCTAssertEqual(m, NotificationPlanner.reminderMinute(day: d, start: ten, end: twenty)) // stable
+            minutes.insert(m)
+            d = d.adding(days: 1)
+        }
+        XCTAssertGreaterThan(minutes.count, 60) // a different moment almost every day
+        // Fixed time when start == end.
+        XCTAssertEqual(NotificationPlanner.reminderMinute(day: d, start: ten, end: ten), 600)
+    }
+
+    func testWindowAcrossMidnight() {
+        let late = ClockTime(hour: 22, minute: 0), early = ClockTime(hour: 1, minute: 0)
+        for i in 0..<60 {
+            let m = NotificationPlanner.reminderMinute(day: day("2026-03-01").adding(days: i), start: late, end: early)
+            XCTAssertTrue((22 * 60...25 * 60).contains(m), "\(m)")
+        }
+    }
+
+    func testPlannedReminders() {
+        let today = day("2026-11-21")
+        let all = NotificationPlanner.reminders(from: today, days: 7, start: ten, end: twenty, minuteNow: 0, skipToday: false)
+        XCTAssertEqual(all.count, 7)
+        XCTAssertEqual(all[0].id, "reminder.2026-11-21")
+        XCTAssertEqual(all[0].title, "È ora della tua registrazione audio")
+        XCTAssertEqual(all[0].link, .record(.notification))
+        XCTAssertFalse(all[0].body.isEmpty)
+        XCTAssertTrue(all.allSatisfy { (600...1200).contains($0.time.minutes) })
+        // Already recorded today → today skipped.
+        let skipped = NotificationPlanner.reminders(from: today, days: 7, start: ten, end: twenty, minuteNow: 0, skipToday: true)
+        XCTAssertEqual(skipped.first?.day, day("2026-11-22"))
+        // Today's moment already passed → skipped.
+        let late = NotificationPlanner.reminders(from: today, days: 3, start: ten, end: twenty, minuteNow: 23 * 60, skipToday: false)
+        XCTAssertEqual(late.map(\.day), [day("2026-11-22"), day("2026-11-23")])
+        // A window crossing midnight fires on the next calendar day.
+        let night = NotificationPlanner.reminders(from: today, days: 1, start: ClockTime(hour: 23, minute: 50),
+                                                  end: ClockTime(hour: 0, minute: 10), minuteNow: 0, skipToday: false)
+        XCTAssertEqual(night.count, 1)
+        XCTAssertTrue(night[0].day == today || night[0].day == today.adding(days: 1))
+    }
+
+    func testSettingsDefaultsAndDecoding() throws {
+        let s = DiarySettings()
+        XCTAssertFalse(s.reminderEnabled)
+        XCTAssertEqual(s.reminderStart, ten)
+        XCTAssertEqual(s.reminderEnd, twenty)
+        XCTAssertTrue(s.reminderSkipIfRecorded)
+        let decoded = try JSONDecoder().decode(DiarySettings.self, from: Data("{\"reminderEnabled\": true}".utf8))
+        XCTAssertTrue(decoded.reminderEnabled)
+        XCTAssertEqual(decoded.reminderEnd, twenty)
+    }
+}

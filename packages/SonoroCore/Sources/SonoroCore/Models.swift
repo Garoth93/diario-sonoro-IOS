@@ -267,13 +267,22 @@ public struct DiarySettings: Codable, Equatable, Sendable {
     public var anniversaryTime: ClockTime
     public var appearance: Appearance
     public var requireFaceID: Bool
+    /// Daily "È ora della tua registrazione audio" at a random moment of the window.
+    public var reminderEnabled: Bool
+    public var reminderStart: ClockTime
+    public var reminderEnd: ClockTime
+    /// No reminder on a day that already has a clip.
+    public var reminderSkipIfRecorded: Bool
 
     public init(clipDuration: Int = 10, quality: AudioQuality = .standard, saveLocation: Bool = true,
                 saveWeather: Bool = false, quickStartRecording: Bool = false, haptics: Bool = true,
                 soundtrackTime: ClockTime = ClockTime(hour: 21, minute: 30), crossfade: Double = 1.0,
                 soundtrackNotification: Bool = true, anniversaryNotification: Bool = true,
                 anniversaryTime: ClockTime = ClockTime(hour: 9, minute: 0), appearance: Appearance = .system,
-                requireFaceID: Bool = false) {
+                requireFaceID: Bool = false, reminderEnabled: Bool = false,
+                reminderStart: ClockTime = ClockTime(hour: 10, minute: 0),
+                reminderEnd: ClockTime = ClockTime(hour: 20, minute: 0),
+                reminderSkipIfRecorded: Bool = true) {
         self.clipDuration = Self.clamp(clipDuration)
         self.quality = quality
         self.saveLocation = saveLocation
@@ -287,6 +296,10 @@ public struct DiarySettings: Codable, Equatable, Sendable {
         self.anniversaryTime = anniversaryTime
         self.appearance = appearance
         self.requireFaceID = requireFaceID
+        self.reminderEnabled = reminderEnabled
+        self.reminderStart = reminderStart
+        self.reminderEnd = reminderEnd
+        self.reminderSkipIfRecorded = reminderSkipIfRecorded
     }
 
     static func clamp(_ v: Int) -> Int { min(durationRange.upperBound, max(durationRange.lowerBound, v)) }
@@ -294,6 +307,7 @@ public struct DiarySettings: Codable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey {
         case clipDuration, quality, saveLocation, saveWeather, quickStartRecording, haptics, soundtrackTime
         case crossfade, soundtrackNotification, anniversaryNotification, anniversaryTime, appearance, requireFaceID
+        case reminderEnabled, reminderStart, reminderEnd, reminderSkipIfRecorded
     }
 
     public init(from decoder: Decoder) throws {
@@ -312,7 +326,11 @@ public struct DiarySettings: Codable, Equatable, Sendable {
             anniversaryNotification: try c.decodeIfPresent(Bool.self, forKey: .anniversaryNotification) ?? d.anniversaryNotification,
             anniversaryTime: try c.decodeIfPresent(ClockTime.self, forKey: .anniversaryTime) ?? d.anniversaryTime,
             appearance: (try? c.decodeIfPresent(Appearance.self, forKey: .appearance)) ?? d.appearance,
-            requireFaceID: try c.decodeIfPresent(Bool.self, forKey: .requireFaceID) ?? d.requireFaceID)
+            requireFaceID: try c.decodeIfPresent(Bool.self, forKey: .requireFaceID) ?? d.requireFaceID,
+            reminderEnabled: try c.decodeIfPresent(Bool.self, forKey: .reminderEnabled) ?? d.reminderEnabled,
+            reminderStart: try c.decodeIfPresent(ClockTime.self, forKey: .reminderStart) ?? d.reminderStart,
+            reminderEnd: try c.decodeIfPresent(ClockTime.self, forKey: .reminderEnd) ?? d.reminderEnd,
+            reminderSkipIfRecorded: try c.decodeIfPresent(Bool.self, forKey: .reminderSkipIfRecorded) ?? d.reminderSkipIfRecorded)
     }
 }
 

@@ -15,6 +15,7 @@ struct SettingsView: View {
     var body: some View {
         List {
             recordingSection
+            reminderSection
             soundtrackSection
             anniversarySection
             appearanceSection
@@ -108,6 +109,35 @@ struct SettingsView: View {
             Text("Registrazione")
         } footer: {
             Text("AAC mono, circa \(ItalianFormat.bytes(model.settings.quality.estimatedBytes(seconds: Double(model.settings.clipDuration)))) per clip. Il luogo è chiesto una volta sola al momento della registrazione, senza tracciamento. Il meteo usa WeatherKit, che richiede un account sviluppatore a pagamento: con un Apple ID gratuito la clip viene salvata senza meteo. Con l'avvio rapido, aprendo l'app dal widget, dal Centro di Controllo o da Siri la registrazione parte da sola (tocca per fermarla).")
+        }
+        .listRowBackground(m3.surfaceContainerLow)
+    }
+
+    private var reminderSection: some View {
+        Section {
+            Toggle(isOn: Binding(
+                get: { model.settings.reminderEnabled },
+                set: { v in enableNotification(v) { $0.reminderEnabled = v } }
+            )) {
+                Label("Ricordami di registrare", systemImage: "bell.badge.fill")
+            }
+            if model.settings.reminderEnabled {
+                DatePicker(selection: timeBinding(\.reminderStart), displayedComponents: .hourAndMinute) {
+                    Label("Dalle", systemImage: "sunrise.fill")
+                }
+                DatePicker(selection: timeBinding(\.reminderEnd), displayedComponents: .hourAndMinute) {
+                    Label("Alle", systemImage: "sunset.fill")
+                }
+                Toggle(isOn: binding(\.reminderSkipIfRecorded)) {
+                    Label("Salta se ho già registrato oggi", systemImage: "checkmark.circle")
+                }
+            }
+        } header: {
+            Text("Promemoria")
+        } footer: {
+            Text(model.settings.reminderEnabled
+                 ? "Ogni giorno, in un momento a caso tra le \(model.settings.reminderStart.label) e le \(model.settings.reminderEnd.label), arriva la notifica \"È ora della tua registrazione audio\". Toccandola l'app si apre pronta a registrare. Se la fascia supera la mezzanotte vale anche per la notte."
+                 : "Una notifica al giorno, in un momento a caso della fascia oraria che scegli: così il diario cattura momenti sempre diversi.")
         }
         .listRowBackground(m3.surfaceContainerLow)
     }
