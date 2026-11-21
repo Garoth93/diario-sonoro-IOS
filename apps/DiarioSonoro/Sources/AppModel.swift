@@ -94,15 +94,17 @@ final class AppModel {
         let t = DayDate.today()
         today = t
         calendarMonth = MonthRef(t)
+        let loaded: DiaryData
         if LaunchOptions.isDemo {
-            data = DemoData.make(today: t, nowMinute: max(minuteOfDay(Date()), 9 * 60))
+            loaded = DemoData.make(today: t, nowMinute: max(minuteOfDay(Date()), 9 * 60))
         } else {
-            data = (try? Storage.store.load()) ?? DiaryData()
+            loaded = (try? Storage.store.load()) ?? DiaryData()
         }
+        data = loaded
         capture = CaptureController(recorder: AVRecorderService(), location: LocationService(),
                                     weather: WeatherKitProvider(), root: Storage.root)
         builder = SoundtrackBuilder(merger: AVMergeService(), root: Storage.root)
-        isLocked = !LaunchOptions.isDemo && data.settings.requireFaceID
+        isLocked = !LaunchOptions.isDemo && loaded.settings.requireFaceID
         if isDemo {
             player.simulate = true
             applyDemoScreen()
