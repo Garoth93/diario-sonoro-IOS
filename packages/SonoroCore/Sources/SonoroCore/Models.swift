@@ -273,6 +273,10 @@ public struct DiarySettings: Codable, Equatable, Sendable {
     public var reminderEnd: ClockTime
     /// No reminder on a day that already has a clip.
     public var reminderSkipIfRecorded: Bool
+    /// Automatic backup in iCloud Drive › Backup › DiarioSonoro.
+    public var cloudBackup: Bool
+    /// Also copy the clips' audio (personal recordings, heavier): off by default.
+    public var cloudBackupAudio: Bool
 
     public init(clipDuration: Int = 10, quality: AudioQuality = .standard, saveLocation: Bool = true,
                 saveWeather: Bool = false, quickStartRecording: Bool = false, haptics: Bool = true,
@@ -282,7 +286,7 @@ public struct DiarySettings: Codable, Equatable, Sendable {
                 requireFaceID: Bool = false, reminderEnabled: Bool = false,
                 reminderStart: ClockTime = ClockTime(hour: 10, minute: 0),
                 reminderEnd: ClockTime = ClockTime(hour: 20, minute: 0),
-                reminderSkipIfRecorded: Bool = true) {
+                reminderSkipIfRecorded: Bool = true, cloudBackup: Bool = true, cloudBackupAudio: Bool = false) {
         self.clipDuration = Self.clamp(clipDuration)
         self.quality = quality
         self.saveLocation = saveLocation
@@ -300,6 +304,8 @@ public struct DiarySettings: Codable, Equatable, Sendable {
         self.reminderStart = reminderStart
         self.reminderEnd = reminderEnd
         self.reminderSkipIfRecorded = reminderSkipIfRecorded
+        self.cloudBackup = cloudBackup
+        self.cloudBackupAudio = cloudBackupAudio
     }
 
     static func clamp(_ v: Int) -> Int { min(durationRange.upperBound, max(durationRange.lowerBound, v)) }
@@ -308,6 +314,7 @@ public struct DiarySettings: Codable, Equatable, Sendable {
         case clipDuration, quality, saveLocation, saveWeather, quickStartRecording, haptics, soundtrackTime
         case crossfade, soundtrackNotification, anniversaryNotification, anniversaryTime, appearance, requireFaceID
         case reminderEnabled, reminderStart, reminderEnd, reminderSkipIfRecorded
+        case cloudBackup, cloudBackupAudio
     }
 
     public init(from decoder: Decoder) throws {
@@ -330,7 +337,9 @@ public struct DiarySettings: Codable, Equatable, Sendable {
             reminderEnabled: try c.decodeIfPresent(Bool.self, forKey: .reminderEnabled) ?? d.reminderEnabled,
             reminderStart: try c.decodeIfPresent(ClockTime.self, forKey: .reminderStart) ?? d.reminderStart,
             reminderEnd: try c.decodeIfPresent(ClockTime.self, forKey: .reminderEnd) ?? d.reminderEnd,
-            reminderSkipIfRecorded: try c.decodeIfPresent(Bool.self, forKey: .reminderSkipIfRecorded) ?? d.reminderSkipIfRecorded)
+            reminderSkipIfRecorded: try c.decodeIfPresent(Bool.self, forKey: .reminderSkipIfRecorded) ?? d.reminderSkipIfRecorded,
+            cloudBackup: try c.decodeIfPresent(Bool.self, forKey: .cloudBackup) ?? d.cloudBackup,
+            cloudBackupAudio: try c.decodeIfPresent(Bool.self, forKey: .cloudBackupAudio) ?? d.cloudBackupAudio)
     }
 }
 
