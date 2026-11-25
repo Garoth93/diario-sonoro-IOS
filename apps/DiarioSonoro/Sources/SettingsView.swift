@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var pendingRestore: (url: URL, manifest: BackupManifest)?
     @State private var confirmDeleteAll = false
     @State private var working = false
+    @State private var showCloudRestore = false
 
     var body: some View {
         List {
@@ -20,6 +21,7 @@ struct SettingsView: View {
             anniversarySection
             appearanceSection
             privacySection
+            cloudSection
             dataSection
             widgetSection
             infoSection
@@ -27,6 +29,10 @@ struct SettingsView: View {
         .scrollContentBackground(.hidden)
         .background(m3.surface)
         .navigationTitle("Impostazioni")
+        .sheet(isPresented: $showCloudRestore) {
+            CloudRestoreView(firstLaunch: false)
+                .presentationCornerRadius(32)
+        }
         .sheet(item: $share) { s in
             ActivitySheet(items: s.urls).presentationDetents([.medium, .large])
         }
@@ -108,7 +114,7 @@ struct SettingsView: View {
         } header: {
             Text("Registrazione")
         } footer: {
-            Text("AAC mono, circa \(ItalianFormat.bytes(model.settings.quality.estimatedBytes(seconds: Double(model.settings.clipDuration)))) per clip. Il luogo è chiesto una volta sola al momento della registrazione, senza tracciamento. Il meteo usa WeatherKit, che richiede un account sviluppatore a pagamento: con un Apple ID gratuito la clip viene salvata senza meteo. Con l'avvio rapido, aprendo l'app dal widget, dal Centro di Controllo o da Siri la registrazione parte da sola (tocca per fermarla).")
+            Text("AAC mono, circa \(ItalianFormat.bytes(model.settings.quality.estimatedBytes(seconds: Double(model.settings.clipDuration)))) per clip. Il luogo è chiesto una volta sola al momento della registrazione, senza tracciamento. Il meteo usa WeatherKit: funziona solo se la capability WeatherKit è attiva sull'App ID dell'app (oggi è spenta, quindi le clip si salvano senza meteo). Con l'avvio rapido, aprendo l'app dal widget, dal Centro di Controllo o da Siri la registrazione parte da sola (tocca per fermarla).")
         }
         .listRowBackground(m3.surfaceContainerLow)
     }
@@ -231,6 +237,60 @@ struct SettingsView: View {
         .listRowBackground(m3.surfaceContainerLow)
     }
 
+    private var cloudSection: some View {
+        let cloud = CloudBackupService.shared
+        return Section {
+            Toggle(isOn: binding(\.cloudBackup)) {
+                Label("Backup automatico su iCloud", systemImage: "icloud.fill")
+            }
+            Toggle(isOn: binding(\.cloudBackupAudio)) {
+                Label("Includi l'audio delle clip", systemImage: "waveform")
+            }
+            .disabled(!model.settings.cloudBackup)
+            LabeledContent {
+                if cloud.isWorking {
+                    ProgressView()
+                } else {
+                    Text(lastBackupLabel(cloud))
+                        .foregroundStyle(cloud.available == false ? m3.error : m3.onSurfaceVariant)
+                }
+            } label: {
+                Label("Ultimo backup", systemImage: "clock")
+            }
+            Button {
+                Task {
+                    if await cloud.backup(force: true) { model.show("Backup salvato su iCloud", icon: "icloud.and.arrow.up", style: .success) }
+                }
+            } label: {
+                Label("Esegui backup ora", systemImage: "icloud.and.arrow.up")
+            }
+            .disabled(cloud.isWorking || model.data.clips.isEmpty || model.isDemo)
+            Button {
+                showCloudRestore = true
+            } label: {
+                Label("Ripristina da iCloud", systemImage: "icloud.and.arrow.down")
+            }
+            .disabled(cloud.isWorking || model.isDemo)
+            if let e = cloud.lastError {
+                Text(e)
+                    .font(.m3BodySmall)
+                    .foregroundStyle(m3.error)
+            }
+        } header: {
+            Text("Backup iCloud")
+        } footer: {
+            Text("I backup sono nell'app File in iCloud Drive › Backup › DiarioSonoro: un file al giorno (ultimi 30) con clip, giornate, note e impostazioni. Partono dopo ogni modifica, quando chiudi l'app e in background. L'audio delle clip è spento di default: sono registrazioni personali e occupano spazio su iCloud; se lo attivi ogni clip viene copiata una volta sola. Le colonne sonore non servono nel backup: si ricreano dalle clip.")
+        }
+        .listRowBackground(m3.surfaceContainerLow)
+    }
+
+    private func lastBackupLabel(_ cloud: CloudBackupService) -> String {
+        if model.isDemo { return "—" }
+        if cloud.available == false { return "iCloud non disponibile" }
+        guard let d = cloud.lastBackupAt else { return "mai" }
+        return ItalianFormat.relativeDay(DayDate(date: d), today: model.today) + ", " + ItalianFormat.time(minuteOfDay: minuteOfDay(d))
+    }
+
     private var dataSection: some View {
         let stats = DiaryStats(data: model.data, today: model.today)
         return Section {
@@ -252,7 +312,7 @@ struct SettingsView: View {
             Button {
                 showImporter = true
             } label: {
-                Label("Ripristina da backup", systemImage: "square.and.arrow.down")
+                Label("Ripristina da file ZIP", systemImage: "square.and.arrow.down")
             }
             .disabled(model.isDemo)
             Button {
@@ -270,7 +330,7 @@ struct SettingsView: View {
         } header: {
             Text("Dati")
         } footer: {
-            Text("Il backup è un file ZIP con tutte le clip, le colonne sonore, le note e le impostazioni: salvalo su File o su un computer prima di reinstallare l'app. Per eliminare una sola clip tienila premuta nel giorno.")
+            Text("Oltre al backup iCloud puoi esportare un file ZIP con tutte le clip (audio compreso), le note e le impostazioni, da salvare dove vuoi. Per eliminare una sola clip tienila premuta nel giorno.")
         }
         .listRowBackground(m3.surfaceContainerLow)
     }

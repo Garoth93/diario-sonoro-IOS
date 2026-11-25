@@ -41,6 +41,8 @@ targets:
       SystemCapabilities:
         com.apple.BackgroundModes:
           enabled: 1
+        com.apple.iCloud:
+          enabled: 1
         com.apple.ApplicationGroups.iOS:
           enabled: 1
     sources:
@@ -85,6 +87,13 @@ targets:
         NSMicrophoneUsageDescription: "Diario Sonoro usa il microfono solo mentre tieni premuto il pulsante, per registrare qualche secondo del suono intorno a te. L'audio resta sul tuo iPhone."
         NSLocationWhenInUseUsageDescription: "Diario Sonoro chiede la posizione una sola volta, al momento della registrazione, per ricordare dove hai registrato. Nessun tracciamento continuo e nulla lascia il tuo iPhone."
         NSFaceIDUsageDescription: "Face ID protegge l'accesso al tuo diario sonoro."
+        # Backups: shared iCloud container of all the apps, visible in Files as
+        # iCloud Drive › Backup (each app writes in its own sub-folder).
+        NSUbiquitousContainers:
+          iCloud.com.garoth93.backup:
+            NSUbiquitousContainerIsDocumentScopePublic: true
+            NSUbiquitousContainerName: Backup
+            NSUbiquitousContainerSupportedFolderLevels: Any
         UIBackgroundModes:
           - audio
           - fetch

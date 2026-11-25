@@ -2,11 +2,15 @@
 
 Repo di app iOS **native (Swift + SwiftUI)** personali, sviluppate senza Mac:
 il codice viene scritto su Linux (Claude Code) e compilato **solo** su GitHub
-Actions con runner macOS. Le app non vanno su App Store: l'utente scarica il
-`.ipa` non firmato dagli artifact e lo firma con Sideloadly/SideStore.
+Actions con runner macOS. Non va su App Store: l'app arriva sull'iPhone con
+**TestFlight** (account Apple a pagamento, firma automatica in CI,
+`testflight.yml`); il `.ipa` non firmato per Sideloadly (`build-ipa.yml`)
+resta come ripiego.
 
-Stessa impostazione delle repo `Garoth93/home-alarm-IOS`,
-`Garoth93/LTIDI-Last-Time-I-Did-It-IOS` e `Garoth93/ritorni-IOS` (mappa).
+Stessa impostazione delle repo `Garoth93/tessere-IOS` e `Garoth93/montagna-360`
+(TestFlight e backup iCloud: procedure riusabili descritte nel CLAUDE.md di
+tessere), `Garoth93/home-alarm-IOS`, `Garoth93/LTIDI-Last-Time-I-Did-It-IOS`,
+`Garoth93/ritorni-IOS` (mappa).
 
 ## Vincoli fissi
 
@@ -17,7 +21,11 @@ Stessa impostazione delle repo `Garoth93/home-alarm-IOS`,
 - Mai committare segreti, chiavi API, certificati, profili di provisioning,
   Team ID reali, **audio o dati reali** (`.gitignore` esclude `*.m4a`, `*.zip`,
   `diary.json`). Test e screenshot usano solo dati sintetici (`DemoData`).
-- Account Apple gratuito: nessuna firma in CI (`CODE_SIGNING_ALLOWED=NO`).
+- Firma solo in `testflight.yml` (automatica, chiave API App Store Connect).
+  Mai certificati, profili o `.p8` nella repo; Team ID solo nei secrets.
+  `build-ipa.yml` e `build-simulator.yml` compilano senza firma.
+- Dati locali; iCloud solo come **backup in iCloud Drive** (niente CloudKit),
+  vedi sotto. Nell'app non esistono token né dati sensibili da salvare.
 - Non modificare impostazioni della repo o secrets: spiegare all'utente cosa
   configurare.
 
@@ -45,6 +53,11 @@ App presenti:
 | App          | Package logica | Bundle ID                                    | Deployment target |
 |--------------|----------------|----------------------------------------------|-------------------|
 | DiarioSonoro | SonoroCore     | `com.garoth93.diariosonoro` (+ `.widgets`)   | iOS 26.0 |
+
+App Group `group.com.garoth93.diariosonoro` (app + widget), container iCloud
+`iCloud.com.garoth93.backup` (solo app). Entrambi creati e spuntati a mano su
+developer.apple.com (App ID app: App Groups + iCloud; App ID widget: solo App
+Groups; WeatherKit **spento**).
 
 ### Diario Sonoro
 
@@ -82,7 +95,8 @@ sintetici, `Tests/SonoroCoreTests`):
   `anniversary`), `WidgetSnapshot`, `NotificationPlanner` (colonna sonora,
   un anno fa, promemoria "È ora della tua registrazione audio" in un minuto
   pseudo-casuale ma stabile per giorno dentro la fascia scelta, anche oltre la
-  mezzanotte, saltato se oggi c'è già una clip), `DemoData`
+  mezzanotte, saltato se oggi c'è già una clip), `CloudBackup`
+  (`CloudBackupFile` JSON versionato + `CloudBackupPlan`, vedi sotto), `DemoData`
   (diario sintetico deterministico di 3 anni).
 
 App (`apps/DiarioSonoro`):
@@ -91,8 +105,9 @@ App (`apps/DiarioSonoro`):
   con metering), `AVMergeService` (AVMutableComposition + volume ramp,
   export M4A), `LocationService` (CLLocationManager `requestLocation`,
   CLGeocoder: deprecato in iOS 26, solo warning), `WeatherKitProvider`
-  (richiede capability WeatherKit di un account a pagamento: con Apple ID
-  gratuito fallisce e la clip si salva senza meteo).
+  (richiede la capability WeatherKit sull'App ID + entitlement
+  `com.apple.developer.weatherkit`: oggi spenti per scelta dell'utente, la
+  richiesta fallisce e la clip si salva senza meteo).
 - `AppModel` (@Observable, @MainActor): dati in
   `Application Support/DiarioSonoro/diary.json` + audio, salvataggio
   differito; widget, notifiche e task in background aggiornati a ogni modifica.
@@ -111,6 +126,35 @@ App (`apps/DiarioSonoro`):
 - Modalità demo per gli screenshot: argomenti `-demo -screen <nome>` (vedi
   `apps/DiarioSonoro/screenshots.txt`). Usa `DemoData` in una cartella
   separata, non tocca dati reali, non chiede permessi, playback simulato.
+
+### Backup iCloud Drive
+
+Stessa procedura di `Garoth93/tessere-IOS`: container **condiviso**
+`iCloud.com.garoth93.backup`, sottocartella `DiarioSonoro` (in File: *iCloud
+Drive › Backup › DiarioSonoro*).
+
+- `DiarioSonoro.entitlements` (App Group + container + `CloudDocuments`), usato
+  da `testflight.yml`; `DiarioSonoro.sideload.entitlements` solo App Group,
+  preferito da `build-ipa.yml` (l'account gratuito non ha iCloud);
+  `Widgets.entitlements` solo App Group (mai iCloud nel widget). `project.yml`:
+  `SystemCapabilities` `com.apple.iCloud`, `NSUbiquitousContainers` con
+  `NSUbiquitousContainerName: Backup`.
+- File: `DiarioSonoro-backup-yyyy-MM-dd.json` (uno al giorno, ultimi 30) +
+  `DiarioSonoro-backup-latest.json`: `CloudBackupFile` con `version`, `app`,
+  `includesAudio`, `days` (riepilogo leggibile delle giornate) e `data`
+  (clip + impostazioni; colonne sonore escluse, si ricreano). Audio delle clip
+  in `audio/<nome file>.m4a` **solo** con `settings.cloudBackupAudio` (default
+  spento), caricato una volta sola. Logica pura in `CloudBackup.swift`
+  (package, testata), I/O in `CloudBackupService.swift` (`NSFileCoordinator`,
+  container risolto fuori dal main thread, segnaposto `.<nome>.icloud`).
+- Quando: dopo le modifiche (8 s), all'uscita in background, nel
+  `BGAppRefreshTask` (`com.garoth93.diariosonoro.soundtrack`, ogni ~6 h e la
+  sera). Impronta del contenuto: nessuna riscrittura se nulla è cambiato. Un
+  diario vuoto non sovrascrive mai i backup. Mai in modalità demo.
+- Ripristino: Impostazioni › Ripristina da iCloud (anteprima + conferma) e
+  guidato al primo avvio se il diario è vuoto (chiesto una volta). I file audio
+  non presenti nel backup vengono rimossi; le giornate senza audio sul
+  telefono non provano a ricreare la colonna sonora.
 
 Per aggiungere un'app: creare `apps/<Nome>/project.yml` + `Sources/` +
 `Resources/`; i workflow scoprono automaticamente le cartelle in `apps/`
@@ -151,13 +195,35 @@ con `name`, target e scheme nel `project.yml`.
 | Workflow | Trigger | Cosa fa |
 |----------|---------|---------|
 | `build-simulator.yml` | push su ogni branch, PR, manuale | `xcodebuild build` per iOS Simulator, senza firma; poi avvia l'app su un simulatore con dati sintetici e salva uno screenshot di ogni schermata (chiaro e scuro) nell'artifact `screenshots-<App>`. Le schermate sono elencate in `apps/<App>/screenshots.txt` (`nome attesa_secondi`). Sui push le stesse immagini (ridotte) vengono anche pubblicate con force-push sul branch `ci-screenshots`: per guardarle `git fetch origin ci-screenshots && git archive FETCH_HEAD \| tar -x -C <cartella>`. |
-| `build-ipa.yml` | push su `main` e `claude/**`, manuale | build Release per dispositivo con `CODE_SIGNING_ALLOWED=NO`, firma ad-hoc con gli `.entitlements` dell'app e delle estensioni, impacchetta `Payload/<App>.app` in `<App>-unsigned.ipa` e lo carica come artifact (30 giorni). |
+| `build-ipa.yml` | push su `main` e `claude/**`, manuale | ripiego Sideloadly: build Release per dispositivo con `CODE_SIGNING_ALLOWED=NO`, firma ad-hoc con `<App>.sideload.entitlements` (senza iCloud) e gli `.entitlements` del widget, impacchetta `Payload/<App>.app` in `<App>-unsigned.ipa` e lo carica come artifact (30 giorni). |
+| `testflight.yml` | manuale, push su `main`/`claude/**` (solo `apps/`, `packages/`, il workflow), ogni ~60 giorni (1° dei mesi dispari, sul branch di default) | archive firmato + export App Store + upload su TestFlight (vedi sotto). |
 | `test-linux.yml` | push su ogni branch, PR, manuale | `swift test` su ogni package in `packages/`. |
 
 Nota: nei repo pubblici i workflow con `schedule` vengono disattivati dopo 60
-giorni senza commit. Se in futuro si aggiunge un rebuild periodico (utile per
-la scadenza a 7 giorni della firma gratuita), prevedere un riattivatore o usare
-`workflow_dispatch`.
+giorni senza commit: se succede, riattivare `testflight` dalla pagina Actions o
+lanciarlo a mano (`workflow_dispatch`). La schedulazione gira sul branch di
+default della repo.
+
+### TestFlight
+
+Procedura identica a `Garoth93/tessere-IOS` (vedi il suo CLAUDE.md):
+
+- secrets della repo: `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` (chiave API
+  App Store Connect, ruolo Admin), `APPLE_TEAM_ID`;
+- App ID `com.garoth93.diariosonoro` (+ `.widgets`) e scheda App Store Connect
+  creati a mano; i profili li crea `xcodebuild -allowProvisioningUpdates`.
+  App Group e container iCloud vanno spuntati a mano sull'App ID (l'API non può);
+- `project.yml` con firma vuota (la imposta il workflow da riga di comando),
+  `SystemCapabilities` sul target, `UIRequiresFullScreen: true` (solo
+  verticale, errore 90474), icona 1024 senza trasparenza,
+  `ITSAppUsesNonExemptEncryption: false`;
+- build number = `github.run_number`; `MARKETING_VERSION` si alza a mano;
+- step "App ID capabilities" (`scripts/asc_bundle_ids.py --delete-stale
+  --group group.com.garoth93.diariosonoro`) stampa capability e profili di app
+  e widget ed elimina i profili senza l'App Group (Xcode li ricrea); il
+  certificato di sviluppo creato sul runner viene revocato
+  (`scripts/asc_revoke_certs.py`). Log nell'artifact `testflight-logs`;
+- le build TestFlight scadono dopo 90 giorni: la schedulazione le rinnova.
 
 ### Come leggere i log di CI
 
@@ -167,6 +233,7 @@ Con `gh` (se il token è valido):
 gh run list --limit 10
 gh run view <run-id> --log-failed
 gh run watch <run-id>
+gh run download <run-id> -n testflight-logs
 gh run download <run-id> -n DiarioSonoro-unsigned-ipa
 gh run download <run-id> -n screenshots-DiarioSonoro
 ```

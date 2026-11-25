@@ -98,6 +98,7 @@ enum BackgroundBuilder {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier, using: nil) { task in
             let work = Task { @MainActor in
                 await AppModel.shared.buildDueSoundtracks()
+                await CloudBackupService.shared.backup(force: false)
                 schedule(time: AppModel.shared.data.settings.soundtrackTime)
                 task.setTaskCompleted(success: true)
             }
@@ -107,7 +108,9 @@ enum BackgroundBuilder {
 
     static func schedule(time: ClockTime) {
         let request = BGAppRefreshTaskRequest(identifier: identifier)
-        request.earliestBeginDate = SoundtrackScheduler.nextRun(after: Date(), time: time).addingTimeInterval(60)
+        // Evening soundtrack, and in any case every ~6 h for the iCloud backup.
+        let evening = SoundtrackScheduler.nextRun(after: Date(), time: time).addingTimeInterval(60)
+        request.earliestBeginDate = min(evening, Date().addingTimeInterval(6 * 3600))
         try? BGTaskScheduler.shared.submit(request)
     }
 }

@@ -8,8 +8,8 @@ App iOS nativa (Swift + SwiftUI, grafica Material 3 sobria con un solo colore
 d'accento, tema chiaro e scuro). Tutto resta sul telefono: nessun server,
 nessun account.
 
-Sviluppata senza Mac: compilata da GitHub Actions e installata sull'iPhone con
-un account Apple gratuito tramite Sideloadly o SideStore.
+Sviluppata senza Mac: compilata e firmata da GitHub Actions, arriva sull'iPhone
+con **TestFlight**.
 
 ## Cosa c'è
 
@@ -47,37 +47,54 @@ un account Apple gratuito tramite Sideloadly o SideStore.
   Sonoro". Aprono l'app già pronta a registrare (opzione "Avvio rapido
   registra subito": parte da sola, tocchi per fermare).
 - **Impostazioni**: durata, qualità, luogo e meteo, orario della colonna
-  sonora e dissolvenza, notifiche, tema, Face ID per aprire l'app, backup e
-  ripristino (ZIP con audio e dati), export CSV, eliminazione delle clip.
+  sonora e dissolvenza, notifiche, tema, Face ID per aprire l'app, backup
+  iCloud, export ZIP (audio e dati) e CSV, eliminazione delle clip.
+- **Backup iCloud** automatico: in File, *iCloud Drive › Backup ›
+  DiarioSonoro*, un JSON al giorno (ultimi 30) con clip, giornate, note e
+  impostazioni. Parte dopo ogni modifica, quando chiudi l'app e in
+  background. L'audio delle clip entra nel backup solo se lo attivi
+  (Impostazioni › Backup iCloud, spento di default: sono registrazioni
+  personali e pesano). Ripristino da Impostazioni, e proposto da solo al
+  primo avvio se l'app è vuota e su iCloud c'è un backup.
 
 ### Limiti da sapere
 
-- **Meteo**: WeatherKit richiede un account sviluppatore a pagamento. Con un
-  Apple ID gratuito la richiesta fallisce e la clip viene salvata senza meteo.
+- **Meteo**: per ora spento. Per attivarlo basta spuntare WeatherKit sull'App
+  ID (incluso nell'account sviluppatore, 500.000 richieste al mese gratis)
+  e aggiungere l'entitlement: senza, la clip si salva senza meteo.
 - **Colonna sonora "ogni sera"**: iOS non permette di eseguire codice a
   un'ora precisa. L'app la crea appena la apri dopo l'orario scelto, quando
   tocchi la notifica, quando registri dopo l'orario e, quando iOS lo concede,
   in background. La notifica è programmata solo nei giorni con clip.
-- **Luogo e meteo** sono le uniche richieste che escono dal telefono (Apple
-  Mappe per il nome del luogo, WeatherKit), solo con la posizione della clip.
+- **Cosa esce dal telefono**: il nome del luogo (Apple Mappe, solo con la
+  posizione della clip) e il backup nel *tuo* iCloud Drive. Nessun server,
+  nessun account, nessun token.
 
 ## Installare l'app sull'iPhone
 
-1. Pagina **Actions** della repo › workflow **build-ipa** › ultimo run verde
-   (o **Run workflow**) › artifact `DiarioSonoro-unsigned-ipa`: estrai
-   `DiarioSonoro-unsigned.ipa` (resta disponibile 30 giorni).
-2. Sideloadly: collega l'iPhone, trascina il `.ipa`, inserisci l'Apple ID,
-   **Start**. Sull'iPhone: Impostazioni › Generali › VPN e gestione
-   dispositivo › Autorizza (serve anche la Modalità sviluppatore).
-3. Al primo avvio tieni premuto il pulsante: iOS chiede il microfono. Dopo la
-   prima clip chiede la posizione "Durante l'uso".
-4. In **Impostazioni › Avvio rapido** controlla "Dati condivisi con i widget":
-   se dice *Non disponibili* la firma non ha incluso l'App Group; i widget
-   funzionano lo stesso ma senza il numero di clip di oggi.
+L'app arriva con **TestFlight**: apri l'app TestFlight sull'iPhone e installa
+**Diario Sonoro**. Ogni push con modifiche all'app carica una nuova build
+(workflow **testflight**); le build TestFlight scadono dopo 90 giorni e la CI
+ne carica una nuova da sola ogni ~60 giorni.
 
-Limiti dell'account gratuito: la firma scade dopo 7 giorni (rifirma lo stesso
-`.ipa`, i dati restano); massimo 3 app attive; app + widget usano 2
-identificativi. Prima di reinstallare fai un **backup** dalle Impostazioni.
+Al primo avvio tieni premuto il pulsante: iOS chiede il microfono. Dopo la
+prima clip chiede la posizione "Durante l'uso". Se l'app è vuota e su iCloud
+c'è un backup, propone di ripristinarlo.
+
+Ripiego senza TestFlight: workflow **build-ipa** › artifact
+`DiarioSonoro-unsigned-ipa`, da firmare con Sideloadly (in questo caso niente
+backup iCloud, che richiede l'account sviluppatore).
+
+### Configurazione una tantum (già fatta)
+
+- developer.apple.com: App Group `group.com.garoth93.diariosonoro`; App ID
+  `com.garoth93.diariosonoro` con App Groups + iCloud (container
+  `iCloud.com.garoth93.backup`); App ID `com.garoth93.diariosonoro.widgets`
+  solo con App Groups.
+- App Store Connect: scheda app con ID pacchetto `com.garoth93.diariosonoro`,
+  gruppi TestFlight interni ed esterni.
+- Secrets della repo: `APPLE_TEAM_ID`, `ASC_KEY_ID`, `ASC_ISSUER_ID`,
+  `ASC_KEY_P8`.
 
 ## Screenshot
 
@@ -95,6 +112,7 @@ apps/DiarioSonoro/       app SwiftUI (project.yml per XcodeGen)
   Widgets/               estensione WidgetKit (widget e controllo)
   screenshots.txt        schermate fotografate in CI
 packages/SonoroCore/     logica non grafica, testata con `swift test` anche su Linux
-.github/workflows/       build-simulator (+ screenshot), build-ipa, test-linux
+.github/workflows/       testflight, build-simulator (+ screenshot), build-ipa (ripiego), test-linux
+scripts/                 asc_*.py: diagnostica App ID e revoca certificati (usati da testflight)
 CLAUDE.md                convenzioni e regole di lavoro per Claude Code
 ```

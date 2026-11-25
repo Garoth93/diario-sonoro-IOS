@@ -65,6 +65,14 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: model.isLocked)
+        .sheet(isPresented: Binding(
+            get: { CloudBackupService.shared.offerRestore && !model.isLocked },
+            set: { CloudBackupService.shared.offerRestore = $0 }
+        )) {
+            CloudRestoreView(firstLaunch: true)
+                .presentationCornerRadius(32)
+        }
+        .task { await CloudBackupService.shared.offerRestoreIfNeeded() }
     }
 }
 

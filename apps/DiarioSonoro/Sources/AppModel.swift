@@ -125,6 +125,7 @@ final class AppModel {
                 guard !Task.isCancelled else { return }
                 try? Storage.store.save(snapshot)
             }
+            CloudBackupService.shared.schedule()
         }
         refreshExternal()
     }
@@ -150,6 +151,7 @@ final class AppModel {
         guard active else {
             if case .recording = phase { Task { await stopRecording() } }
             flush()
+            if !isDemo { Task { await CloudBackupService.shared.backup(force: false) } }
             return
         }
         let t = DayDate.today()
@@ -362,7 +364,9 @@ final class AppModel {
             data.removeSoundtrack(for: orphan.day)
             changed = true
         }
+        // Days whose audio is not on this phone (e.g. restored without audio) are skipped.
         let due = SoundtrackScheduler.dueDays(data: data, today: DayDate.today(), minuteNow: minuteOfDay(Date()))
+            .filter { d in data.clips(on: d).contains { FileInfo.exists(Storage.url($0.fileName)) } }
         for day in due.prefix(30) where !building.contains(day) {
             if await buildSoundtrack(day, persistAfter: false) { changed = true }
         }
@@ -539,6 +543,39 @@ final class AppModel {
             errorMessage = "Ripristino non riuscito: \(error.localizedDescription)"
         }
         try? FileManager.default.removeItem(at: local)
+    }
+
+    // MARK: iCloud restore
+
+    /// Replaces the diary with an iCloud backup. Audio files that the backup
+    /// does not reference are removed; soundtracks are rebuilt.
+    func restoreFromCloud(_ file: CloudBackupFile) {
+        player.stop()
+        let restored = CloudBackupPlan.restoredData(from: file)
+        let keep = Set(restored.clips.map(\.fileName))
+        let fm = FileManager.default
+        try? fm.removeItem(at: Storage.url(FileNaming.soundtracksFolder))
+        let clipsRoot = Storage.url(FileNaming.clipsFolder)
+        if let walker = fm.enumerator(at: clipsRoot, includingPropertiesForKeys: nil) {
+            for case let url as URL in walker where url.pathExtension == FileNaming.audioExtension {
+                // clips/YYYY/MM/<name>.m4a, rebuilt from the last components
+                // (no prefix comparison: /var vs /private/var).
+                let parts = url.pathComponents
+                guard parts.count >= 3 else { continue }
+                let relative = ([FileNaming.clipsFolder] + parts.suffix(3)).joined(separator: "/")
+                guard FileNaming.parseClip(relative) != nil, !keep.contains(relative) else { continue }
+                try? fm.removeItem(at: url)
+            }
+        }
+        data = restored
+        persist()
+        flush()
+        let missing = restored.clips.filter { !FileInfo.exists(Storage.url($0.fileName)) }.count
+        show(missing == 0
+             ? "Ripristinate \(ItalianFormat.clips(restored.clips.count))"
+             : "Ripristinate \(ItalianFormat.clips(restored.clips.count)), \(missing) senza audio",
+             icon: "icloud.and.arrow.down", style: .success)
+        Task { await buildDueSoundtracks() }
     }
 
     // MARK: Toast
